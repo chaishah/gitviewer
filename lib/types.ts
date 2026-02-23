@@ -74,3 +74,18 @@ export interface APIError {
   status?: number;
   rateLimited?: boolean;
 }
+
+export interface GraphCommit {
+  sha: string;
+  shortSha: string;
+  message: string;
+  author: string;
+  authorAvatar: string | null;
+  date: string;
+  parents: string[];
+  refs: string[];
+}
+
+export interface GraphResponse {
+  commits: GraphCommit[];
+}

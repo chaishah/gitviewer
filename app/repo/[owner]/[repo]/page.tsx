@@ -2,15 +2,16 @@
 
 import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Clock, Code2, Loader2, Github } from 'lucide-react';
+import { ArrowLeft, Clock, Code2, GitBranch, Loader2, Github } from 'lucide-react';
 import type { RepoInfo, BranchesResponse } from '@/lib/types';
 import { RepoHeader } from '@/components/Repo/RepoHeader';
 import { TimelineView } from '@/components/Timeline/TimelineView';
 import { CodeTab } from '@/components/Code/CodeTab';
+import CommitGraph from '@/components/Graph/CommitGraph';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { RepoHeaderSkeleton } from '@/components/ui/Skeleton';
 
-type Tab = 'timeline' | 'code';
+type Tab = 'timeline' | 'code' | 'graph';
 
 interface PageParams {
   owner: string;
@@ -58,6 +59,7 @@ export default function RepoPage({ params }: { params: Promise<PageParams> }) {
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: 'timeline', label: 'Timeline', icon: <Clock className="w-4 h-4" /> },
     { id: 'code', label: 'Code', icon: <Code2 className="w-4 h-4" /> },
+    { id: 'graph', label: 'Graph', icon: <GitBranch className="w-4 h-4" /> },
   ];
 
   return (
@@ -139,6 +141,11 @@ export default function RepoPage({ params }: { params: Promise<PageParams> }) {
                       repoFullName={repoFullName}
                       defaultBranch={repoInfo.defaultBranch}
                     />
+                  </div>
+                )}
+                {activeTab === 'graph' && (
+                  <div className="animate-fade-in">
+                    <CommitGraph repo={repoFullName} />
                   </div>
                 )}
               </>
