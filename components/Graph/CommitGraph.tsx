@@ -45,7 +45,7 @@ const LANE_COLORS = [
   '#d2a8ff', // lavender
 ];
 
-const ROW_H = 40;
+const ROW_H = 44; // slightly taller for touch targets
 const LANE_W = 18;
 const DOT_R = 5;
 const PAD = 10;
@@ -212,15 +212,16 @@ export default function CommitGraph({ repo }: CommitGraphProps) {
     <div className="border border-[#30363d] rounded-lg overflow-hidden">
       {/* Header bar */}
       <div className="flex items-center gap-3 px-4 py-2.5 bg-[#161b22] border-b border-[#30363d] text-xs text-[#8b949e]">
-        <GitBranch className="w-3.5 h-3.5" />
+        <GitBranch className="w-3.5 h-3.5 shrink-0" />
         <span>{commits.length} commits</span>
         <span className="text-[#484f58]">·</span>
-        <span>scroll to explore</span>
+        <span className="hidden sm:inline">scroll to explore</span>
+        <span className="sm:hidden">tap to expand</span>
       </div>
 
-      {/* Column headers */}
+      {/* Column headers — hidden on mobile to reclaim space */}
       <div
-        className="flex items-center bg-[#161b22] border-b border-[#21262d] text-xs text-[#484f58] select-none"
+        className="hidden sm:flex items-center bg-[#161b22] border-b border-[#21262d] text-xs text-[#484f58] select-none"
         style={{ paddingLeft: svgW }}
       >
         <span className="flex-1 px-3 py-1.5">Message</span>
@@ -229,9 +230,10 @@ export default function CommitGraph({ repo }: CommitGraphProps) {
         <span className="w-16 px-3 py-1.5">SHA</span>
       </div>
 
-      {/* Scrollable graph body */}
-      <div className="overflow-auto bg-[#0d1117]" style={{ maxHeight: '68vh' }}>
-        <div className="flex" style={{ minWidth: 'max-content', width: '100%' }}>
+      {/* Scrollable graph body — vertical scroll only; SVG handles any lane overflow */}
+      <div className="overflow-y-auto overflow-x-hidden bg-[#0d1117]" style={{ maxHeight: '68vh' }}>
+        {/* Single full-width flex row: [SVG strip | commit info] */}
+        <div className="flex w-full">
           {/* ── SVG graph column ── */}
           <svg
             width={svgW}
@@ -302,7 +304,7 @@ export default function CommitGraph({ repo }: CommitGraphProps) {
                   {/* Main row */}
                   <div
                     style={{ height: ROW_H }}
-                    className={`flex items-center gap-2 px-3 cursor-pointer border-b border-[#21262d] transition-colors ${
+                    className={`flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 cursor-pointer border-b border-[#21262d] transition-colors ${
                       isSelected ? 'bg-[#1c2128]' : 'hover:bg-[#161b22]'
                     }`}
                     onClick={() =>
@@ -321,27 +323,27 @@ export default function CommitGraph({ repo }: CommitGraphProps) {
                     {node.commit.refs.map((ref) => (
                       <span
                         key={ref}
-                        className="shrink-0 text-[10px] px-1.5 py-px rounded border font-mono leading-tight"
+                        className="shrink-0 text-[10px] px-1.5 py-px rounded border font-mono leading-tight hidden xs:inline-block sm:inline-block"
                         style={{ borderColor: node.color, color: node.color }}
                       >
                         {ref}
                       </span>
                     ))}
 
-                    {/* Commit message */}
+                    {/* Commit message — fills all available space and truncates */}
                     <span
-                      className="flex-1 truncate text-sm"
+                      className="flex-1 truncate text-xs sm:text-sm min-w-0"
                       style={{ color: isSelected ? '#e6edf3' : '#c9d1d9' }}
                     >
                       {node.commit.message}
                     </span>
 
-                    {/* Author */}
+                    {/* Author — desktop only */}
                     <span className="shrink-0 w-28 truncate text-xs text-[#8b949e] hidden sm:block">
                       {node.commit.author}
                     </span>
 
-                    {/* Date */}
+                    {/* Date — desktop only */}
                     <span className="shrink-0 w-28 text-xs text-[#484f58] hidden md:block">
                       {node.commit.date
                         ? formatDistanceToNow(new Date(node.commit.date), {
@@ -350,12 +352,12 @@ export default function CommitGraph({ repo }: CommitGraphProps) {
                         : ''}
                     </span>
 
-                    {/* SHA link */}
+                    {/* SHA link — hidden on mobile, shown in expanded panel */}
                     <a
                       href={`https://github.com/${repo}/commit/${node.commit.sha}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="shrink-0 w-16 text-xs font-mono text-[#58a6ff] hover:underline text-right"
+                      className="shrink-0 w-14 text-xs font-mono text-[#58a6ff] hover:underline text-right hidden sm:block"
                       onClick={(e) => e.stopPropagation()}
                     >
                       {node.commit.shortSha}
@@ -364,12 +366,20 @@ export default function CommitGraph({ repo }: CommitGraphProps) {
 
                   {/* Expanded detail panel */}
                   {isSelected && (
-                    <div className="bg-[#161b22] border-b border-[#30363d] px-4 py-3 text-xs text-[#8b949e] space-y-1.5">
-                      <div className="flex gap-2 flex-wrap">
-                        <span className="text-[#e6edf3] font-mono">{node.commit.sha}</span>
+                    <div className="bg-[#161b22] border-b border-[#30363d] px-3 sm:px-4 py-3 text-xs text-[#8b949e] space-y-1.5">
+                      <div className="flex gap-2 flex-wrap items-center">
+                        <a
+                          href={`https://github.com/${repo}/commit/${node.commit.sha}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[#58a6ff] font-mono hover:underline break-all"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {node.commit.sha}
+                        </a>
                         {node.commit.parents.length > 1 && (
                           <span
-                            className="px-1.5 py-px rounded text-[10px]"
+                            className="px-1.5 py-px rounded text-[10px] shrink-0"
                             style={{ background: node.color + '22', color: node.color }}
                           >
                             merge commit
@@ -380,6 +390,12 @@ export default function CommitGraph({ repo }: CommitGraphProps) {
                         <span className="text-[#484f58]">Author: </span>
                         {node.commit.author}
                       </div>
+                      {node.commit.date && (
+                        <div className="sm:hidden">
+                          <span className="text-[#484f58]">When: </span>
+                          {formatDistanceToNow(new Date(node.commit.date), { addSuffix: true })}
+                        </div>
+                      )}
                       {node.commit.parents.length > 0 && (
                         <div>
                           <span className="text-[#484f58]">Parents: </span>
