@@ -341,7 +341,7 @@ export async function getCommitGraph(owner: string, repo: string): Promise<Graph
       octokit.repos
         .listCommits({ owner, repo, sha: branch.name, per_page: 50 })
         .then((r) => ({ branch: branch.name, commits: r.data }))
-        .catch(() => ({ branch: branch.name, commits: [] as typeof branchesRes.data }))
+        .catch(() => ({ branch: branch.name, commits: [] as never[] }))
     )
   );
 
