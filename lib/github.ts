@@ -7,6 +7,8 @@ import type {
   BlobResponse,
   RepoInfo,
   BranchInfo,
+  GraphCommit,
+  GraphResponse,
 } from './types';
 
 function getOctokit(): Octokit {
@@ -315,6 +317,75 @@ function getLanguageFromExt(ext: string): string {
     gql: 'graphql',
   };
   return map[ext] ?? 'plaintext';
+}
+
+export async function getCommitGraph(owner: string, repo: string): Promise<GraphResponse> {
+  const cacheKey = `graph:${owner}/${repo}`;
+  const cached = cache.get<GraphResponse>(cacheKey);
+  if (cached) return cached;
+
+  const octokit = getOctokit();
+
+  // Get repo info for default branch, then fetch up to 8 branches
+  const repoInfo = await getRepoInfo(owner, repo);
+  const branchesRes = await octokit.repos.listBranches({ owner, repo, per_page: 8 });
+  const branches = branchesRes.data.sort((a, b) => {
+    if (a.name === repoInfo.defaultBranch) return -1;
+    if (b.name === repoInfo.defaultBranch) return 1;
+    return 0;
+  });
+
+  // Fetch last 50 commits per branch (parallel)
+  const commitSets = await Promise.all(
+    branches.map((branch) =>
+      octokit.repos
+        .listCommits({ owner, repo, sha: branch.name, per_page: 50 })
+        .then((r) => ({ branch: branch.name, commits: r.data }))
+        .catch(() => ({ branch: branch.name, commits: [] as never[] }))
+    )
+  );
+
+  // Build unified commit map; track which branch each head points to
+  const commitMap = new Map<string, GraphCommit>();
+  const headRefs = new Map<string, string[]>();
+
+  for (const { branch, commits } of commitSets) {
+    if (commits.length > 0) {
+      const headSha = commits[0].sha;
+      const refs = headRefs.get(headSha) ?? [];
+      refs.push(branch);
+      headRefs.set(headSha, refs);
+    }
+    for (const commit of commits) {
+      if (!commitMap.has(commit.sha)) {
+        commitMap.set(commit.sha, {
+          sha: commit.sha,
+          shortSha: commit.sha.substring(0, 7),
+          message: commit.commit.message.split('\n')[0],
+          author: commit.commit.author?.name ?? (commit.author?.login ?? 'Unknown'),
+          authorAvatar: commit.author?.avatar_url ?? null,
+          date: commit.commit.author?.date ?? '',
+          parents: commit.parents.map((p) => p.sha),
+          refs: [],
+        });
+      }
+    }
+  }
+
+  // Attach branch-ref labels to head commits
+  for (const [sha, refs] of headRefs) {
+    const c = commitMap.get(sha);
+    if (c) c.refs = refs;
+  }
+
+  // Sort newest-first
+  const commits = Array.from(commitMap.values()).sort(
+    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+  );
+
+  const result: GraphResponse = { commits };
+  cache.set(cacheKey, result, 120);
+  return result;
 }
 
 export function handleGitHubError(err: unknown): { status: number; message: string; rateLimited: boolean } {
